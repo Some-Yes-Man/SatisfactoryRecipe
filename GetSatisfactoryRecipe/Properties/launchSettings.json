@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "GetSatisfactoryRecipe": {
+      "commandName": "Project",
+      "commandLineArgs": "-mats -reci -mach"
+    }
+  }
+}
