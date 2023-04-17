@@ -4,29 +4,29 @@
 
         public string Name { get; private set; }
         public int CraftingTime { get; private set; }
-        public List<Tuple<Material, int>> Inputs { get; private set; }
-        public List<Tuple<Material, int>> Outputs { get; private set; }
+        public Dictionary<Material, int> Inputs { get; private set; }
+        public Dictionary<Material, int> Outputs { get; private set; }
 
         public Recipe(string name, int craftingTime) {
             this.Name = name;
             this.CraftingTime = craftingTime;
-            this.Inputs = new List<Tuple<Material, int>>();
-            this.Outputs = new List<Tuple<Material, int>>();
+            this.Inputs = new Dictionary<Material, int>();
+            this.Outputs = new Dictionary<Material, int>();
         }
 
         public Recipe AddInput(Material material, int amount) {
-            if (this.Inputs.Any(x => x.Item1 == material)) {
+            if (this.Inputs.ContainsKey(material)) {
                 throw new ArgumentException($"Duplicate input '{material}' specified.");
             }
-            this.Inputs.Add(new Tuple<Material, int>(material, amount));
+            this.Inputs.Add(material, amount);
             return this;
         }
 
         public Recipe AddOutput(Material material, int amount) {
-            if (this.Outputs.Any(x => x.Item1 == material)) {
+            if (this.Outputs.ContainsKey(material)) {
                 throw new ArgumentException($"Duplicate output '{material}' specified.");
             }
-            this.Outputs.Add(new Tuple<Material, int>(material, amount));
+            this.Outputs.Add(material, amount);
             return this;
         }
 

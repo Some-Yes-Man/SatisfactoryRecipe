@@ -188,14 +188,14 @@ namespace GetSatisfactoryRecipe.Tests {
 
         [TestMethod()]
         public void TestIronOreProduction() {
-            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialIronOre, 1000, knownMachines);
+            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialIronOre, knownMachines);
             Assert.AreEqual(1, options.Count);
             Assert.AreEqual(1, options.First(x => x.CalculateUsedRecipes().Contains(recipeIronOre)).CalculateUsedRecipes().Count);
         }
 
         [TestMethod()]
         public void TestIronIngotProduction() {
-            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialIronIngot, 1000, knownMachines);
+            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialIronIngot, knownMachines);
             Assert.AreEqual(3, options.Count);
             Assert.AreEqual(2, options.First(x => x.CalculateUsedRecipes().Contains(recipeIronIngot)).CalculateUsedRecipes().Count);
             Assert.AreEqual(3, options.First(x => x.CalculateUsedRecipes().Contains(recipeIronAlloyIngot)).CalculateUsedRecipes().Count);
@@ -204,7 +204,7 @@ namespace GetSatisfactoryRecipe.Tests {
 
         [TestMethod()]
         public void TestIronPlateProduction() {
-            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialIronPlate, 1000, knownMachines);
+            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialIronPlate, knownMachines);
             Assert.AreEqual(3, options.Count);
             Assert.AreEqual(3, options.First(x => x.CalculateUsedRecipes().Contains(recipeIronIngot)).CalculateUsedRecipes().Count);
             Assert.AreEqual(4, options.First(x => x.CalculateUsedRecipes().Contains(recipeIronAlloyIngot)).CalculateUsedRecipes().Count);
@@ -213,19 +213,19 @@ namespace GetSatisfactoryRecipe.Tests {
 
         [TestMethod()]
         public void TestScrewProduction() {
-            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialScrew, 1000, knownMachines);
+            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialScrew, knownMachines);
             Assert.AreEqual(24, options.Count);
         }
 
         [TestMethod()]
         public void TestReinforcedPlateProduction() {
-            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialReinforcedIronPlate, 1000, knownMachines);
+            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialReinforcedIronPlate, knownMachines);
             Assert.AreEqual(144, options.Count);
         }
 
         [TestMethod()]
         public void TestModularFrameProduction() {
-            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialModularFrame, 1000, knownMachines);
+            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialModularFrame, knownMachines);
             Assert.AreEqual(1932, options.Count);
         }
     }

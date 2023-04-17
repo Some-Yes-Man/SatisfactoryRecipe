@@ -253,7 +253,7 @@
 
         private static readonly List<Recipe> knownRecipes = new(knownMachines.SelectMany(x => x.Recipes).ToList());
 
-        private static readonly List<Material> knownMaterials = new(knownRecipes.SelectMany(x => x.Outputs).Select(y => y.Item1).Distinct().ToList());
+        private static readonly List<Material> knownMaterials = new(knownRecipes.SelectMany(x => x.Outputs).Select(y => y.Key).Distinct().ToList());
 
         static void Main(string[] args) {
             string listingSeperator = Environment.NewLine + "  * ";
@@ -274,17 +274,17 @@
                 }
             }
 
-            Material targetMaterial = materialMotor;
+            Material targetMaterial = materialScrew;
             Console.WriteLine($"Trying to find recipes for material '{targetMaterial}'...");
 
-            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(targetMaterial, 60, knownMachines);
-            foreach (var o in options) {
-                //Console.WriteLine(o);
-                //Console.WriteLine($"Power: {o.CalculatePowerUsage():0.00}MW");
-                //Console.WriteLine($"Machines: {string.Join(", ", o.CalculateMachinesNeeded().Select(x => x.Value + "x " + x.Key.Name))}");
-                //Console.WriteLine($"Ressources: {string.Join(", ", o.CalculateBasicRessourcesNeeded().Select(x => x.Value.ToString("0.00") + "x " + x.Key.Name))}");
-                //Console.WriteLine();
-            }
+            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(targetMaterial, knownMachines);
+            //foreach (var o in options) {
+            //    Console.WriteLine(o);
+            //    Console.WriteLine($"Power: {o.CalculatePowerUsage(60):0.00}MW");
+            //    Console.WriteLine($"Machines: {string.Join(", ", o.CalculateMachinesNeeded(60).Select(x => x.Value + "x " + x.Key.Name))}");
+            //    Console.WriteLine($"Ressources: {string.Join(", ", o.CalculateBasicRessourcesNeeded(60).Select(x => x.Value.ToString("0.00") + "x " + x.Key.Name))}");
+            //    Console.WriteLine();
+            //}
             Console.WriteLine($"Found {options.Count} unique options to produce '{targetMaterial}'.");
             Console.WriteLine("Done.");
         }
