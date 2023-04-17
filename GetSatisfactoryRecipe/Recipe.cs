@@ -1,7 +1,6 @@
 ﻿namespace GetSatisfactoryRecipe {
     public class Recipe {
-        private readonly Guid _id = Guid.NewGuid();
-
+        public Guid Id { get; private set; } = Guid.NewGuid();
         public string Name { get; private set; }
         public int CraftingTime { get; private set; }
         public Dictionary<Material, int> Inputs { get; private set; }
@@ -31,11 +30,11 @@
         }
 
         public override bool Equals(object? obj) {
-            return (obj is Recipe recipe) && this._id.Equals(recipe._id);
+            return (obj is Recipe recipe) && this.Id.Equals(recipe.Id);
         }
 
         public override int GetHashCode() {
-            return HashCode.Combine(this._id);
+            return HashCode.Combine(this.Id);
         }
 
         public override string ToString() {

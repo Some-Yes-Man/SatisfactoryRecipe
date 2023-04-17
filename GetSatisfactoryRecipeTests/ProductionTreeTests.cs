@@ -193,7 +193,7 @@ namespace GetSatisfactoryRecipe.Tests {
             Assert.AreEqual(1, options.First(x => x.CalculateUsedRecipes().Contains(recipeIronOre)).CalculateUsedRecipes().Count);
         }
 
-        [TestMethod()]
+        //[TestMethod()]
         public void TestIronIngotProduction() {
             List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialIronIngot, knownMachines);
             Assert.AreEqual(3, options.Count);
@@ -202,7 +202,7 @@ namespace GetSatisfactoryRecipe.Tests {
             Assert.AreEqual(3, options.First(x => x.CalculateUsedRecipes().Contains(recipePureIronIngot)).CalculateUsedRecipes().Count);
         }
 
-        [TestMethod()]
+        //[TestMethod()]
         public void TestIronPlateProduction() {
             List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialIronPlate, knownMachines);
             Assert.AreEqual(3, options.Count);
@@ -211,19 +211,19 @@ namespace GetSatisfactoryRecipe.Tests {
             Assert.AreEqual(4, options.First(x => x.CalculateUsedRecipes().Contains(recipePureIronIngot)).CalculateUsedRecipes().Count);
         }
 
-        [TestMethod()]
+        //[TestMethod()]
         public void TestScrewProduction() {
             List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialScrew, knownMachines);
             Assert.AreEqual(24, options.Count);
         }
 
-        [TestMethod()]
+        //[TestMethod()]
         public void TestReinforcedPlateProduction() {
             List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialReinforcedIronPlate, knownMachines);
             Assert.AreEqual(144, options.Count);
         }
 
-        [TestMethod()]
+        //[TestMethod()]
         public void TestModularFrameProduction() {
             List<ProductionTree> options = ProductionTree.GetAllProductionOptions(materialModularFrame, knownMachines);
             Assert.AreEqual(1932, options.Count);

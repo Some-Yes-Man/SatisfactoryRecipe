@@ -1,6 +1,7 @@
 ﻿namespace GetSatisfactoryRecipe {
     internal class Program {
 
+        private static readonly Material materialPower = new("_MW");
         private static readonly Material materialIronOre = new("_Iron Ore");
         private static readonly Material materialIronIngot = new("_Iron Ingot");
         private static readonly Material materialIronRod = new("_Iron Rod");
@@ -86,6 +87,7 @@
         private static readonly Recipe recipeCompactedSteelIngot = new Recipe("Compacted Steel Ingot", 16).AddInput(materialIronOre, 6).AddInput(materialCompactedCoal, 3).AddOutput(materialSteelIngot, 10);
         private static readonly Recipe recipeSolidSteelIngot = new Recipe("Solid Steel Ingot", 3).AddInput(materialIronIngot, 2).AddInput(materialCoal, 2).AddOutput(materialSteelIngot, 3);
         private static readonly Recipe recipeSteelBeam = new Recipe("Steel Beam", 4).AddInput(materialSteelIngot, 4).AddOutput(materialSteelBeam, 1);
+        private static readonly Recipe recipeMagicRefinery = new Recipe("Magic Refinery", 1).AddInput(materialCrudeOil, 1).AddOutput(materialPlastic, 1).AddOutput(materialRubber, 1);
         private static readonly Recipe recipePetroleumCoke = new Recipe("Petroleum Coke", 6).AddInput(materialHeavyOilResidue, 4).AddOutput(materialPetroleumCoke, 12);
         private static readonly Recipe recipeHeavyOilResidue = new Recipe("Heavy Oil Residue", 6).AddInput(materialCrudeOil, 3).AddOutput(materialHeavyOilResidue, 4).AddOutput(materialPolymerResin, 2);
         private static readonly Recipe recipeCompactedCoal = new Recipe("Compacted Coal", 12).AddInput(materialCoal, 5).AddInput(materialSulfur, 5).AddOutput(materialCompactedCoal, 5);
@@ -221,7 +223,7 @@
             new Machine("Manufacturer", 55)
                 .AddRecipe(recipePlasticSmartPlating)
                 .AddRecipe(recipeFlexibleFramework)
-                //.AddRecipe(recipeCrystalOscillator)
+                .AddRecipe(recipeCrystalOscillator)
                 .AddRecipe(recipeInsulatedCrystalOscillator)
                 .AddRecipe(recipeRigourMotor)
                 .AddRecipe(recipeHeavyModularFrame)
@@ -236,12 +238,13 @@
                 .AddRecipe(recipePureCateriumIngot)
                 .AddRecipe(recipePetroleumCoke)
                 .AddRecipe(recipeHeavyOilResidue)
-                .AddRecipe(recipeRubber)
-                .AddRecipe(recipeResidualRubber)
-                .AddRecipe(recipePlastic)
-                .AddRecipe(recipeResidualPlastic)
                 .AddRecipe(recipeFuel)
-                .AddRecipe(recipePolymerResin)
+                .AddRecipe(recipeMagicRefinery)
+                //.AddRecipe(recipeRubber)
+                //.AddRecipe(recipeResidualRubber)
+                //.AddRecipe(recipePlastic)
+                //.AddRecipe(recipeResidualPlastic)
+                //.AddRecipe(recipePolymerResin)
                 .AddRecipe(recipeCoatedCable)
                 .AddRecipe(recipeSteamedCopperSheet)
                 .AddRecipe(recipeWetConcrete)
@@ -274,18 +277,134 @@
                 }
             }
 
+            //Console.Write("Initializing low-level recipes");
+            //foreach (var recipe in knownRecipes.Where(x => !x.Inputs.Any())) {
+            //    foreach (var output in recipe.Outputs) {
+            //        Console.Write(".");
+            //        ProductionTree.GetAllProductionOptions(output.Key, knownMachines);
+            //    }
+            //}
+            //Console.WriteLine();
+
             Material targetMaterial = materialScrew;
             Console.WriteLine($"Trying to find recipes for material '{targetMaterial}'...");
+            List<ProductionTree> productionOptions = ProductionTree.GetAllProductionOptionsInCool(targetMaterial, knownMachines);
+            Console.WriteLine($"Found {productionOptions.Count} unique options to produce '{targetMaterial}'.");
+            Console.WriteLine($"Filtering options.");
+            Console.WriteLine();
 
-            List<ProductionTree> options = ProductionTree.GetAllProductionOptions(targetMaterial, knownMachines);
-            //foreach (var o in options) {
-            //    Console.WriteLine(o);
-            //    Console.WriteLine($"Power: {o.CalculatePowerUsage(60):0.00}MW");
-            //    Console.WriteLine($"Machines: {string.Join(", ", o.CalculateMachinesNeeded(60).Select(x => x.Value + "x " + x.Key.Name))}");
-            //    Console.WriteLine($"Ressources: {string.Join(", ", o.CalculateBasicRessourcesNeeded(60).Select(x => x.Value.ToString("0.00") + "x " + x.Key.Name))}");
-            //    Console.WriteLine();
-            //}
-            Console.WriteLine($"Found {options.Count} unique options to produce '{targetMaterial}'.");
+            // which resources can be ignored or are less important?
+            Dictionary<Material, double> resourceMultipliers = new() {
+                //{ materialWater, 0.0d },
+            };
+            List<ProductionTree> shitList = new();
+            // sets of resources plus trees that use them
+            List<Production> collectedOptions = new();
+            double calculationAmount = 1000d;
+
+            foreach (ProductionTree option in productionOptions) {
+                Dictionary<Material, double> optionRequirements = option.CalculateBasicRessourcesNeeded(calculationAmount);
+                optionRequirements.Add(materialPower, option.CalculatePowerUsage(calculationAmount));
+
+                foreach (var mat in optionRequirements.Keys) {
+                    if (resourceMultipliers.ContainsKey(mat) && (resourceMultipliers[mat] == 0d)) {
+                        optionRequirements.Remove(mat);
+                    }
+                }
+
+                Production production = new Production(option, optionRequirements);
+
+                // already collected the same, or even a better option
+                if (collectedOptions.Any(x => Production.BomOneIsBetterThanOrSameAsBomTwo(x.Materials, optionRequirements))) {
+                    // better option available
+                    if (collectedOptions.Any(x => Production.BomOneIsBetterThanBomTwo(x.Materials, optionRequirements))) {
+                        Console.WriteLine("There is a clearly better option available. Dropping current option.");
+                        Console.WriteLine($"'{collectedOptions.First(x => Production.BomOneIsBetterThanBomTwo(x.Materials, optionRequirements))}' is better than '{production}'.");
+                    }
+                    // same option present
+                    else {
+                        Console.WriteLine("Same option already available; adding new option anyway.");
+                        collectedOptions.Add(production);
+                    }
+                }
+                // no better or equivalent options found
+                else {
+                    // remove options that are clearly worse
+                    List<Production> worseOptions = collectedOptions.Where(x => !Production.BomOneIsBetterThanOrSameAsBomTwo(x.Materials, optionRequirements) && Production.BomOneIsWorseThanBomTwo(x.Materials, optionRequirements)).ToList();
+                    foreach (var worse in worseOptions) {
+                        Console.WriteLine($"Removing bad option '{worse}'.");
+                        collectedOptions.Remove(worse);
+                    }
+                    // add new option
+                    Console.WriteLine($"Adding new option '{production}'.");
+                    collectedOptions.Add(production);
+                }
+            }
+
+            Console.WriteLine("Original options:");
+            foreach (var item in productionOptions) {
+                Console.WriteLine(item);
+            }
+
+            Console.WriteLine("Options left:");
+            foreach (var item in collectedOptions) {
+                Console.WriteLine(item.Tree);
+            }
+            return;
+
+            double powerWeight = 2.0d;
+            bool ignoreMaterialWater = false;
+            foreach (var own in productionOptions) {
+                Dictionary<Material, double> ownResources = own.CalculateBasicRessourcesNeeded(calculationAmount);
+                //IEnumerable<ProductionTree> optionsWithSameAmountOfResources = options.Where(x => (x != own) && x.CalculateBasicRessourcesNeeded(calculationAmount).Count(y => !ignoreMaterialWater || (y.Key != materialWater)) == ownResources.Count(x => !ignoreMaterialWater || (x.Key != materialWater)));
+                //if (!optionsWithSameAmountOfResources.Any()) {
+                //    continue;
+                //}
+                //IEnumerable<ProductionTree> optionsWithIdenticalResources = optionsWithSameAmountOfResources.Where(x => x.CalculateBasicRessourcesNeeded(calculationAmount).Where(y => !ignoreMaterialWater || (y.Key != materialWater)).All(y => ownResources.ContainsKey(y.Key)));
+                //if (!optionsWithIdenticalResources.Any()) {
+                //    continue;
+                //}
+                foreach (var other in productionOptions) {
+                    Dictionary<Material, double> otherResources = other.CalculateBasicRessourcesNeeded(calculationAmount);
+                    double ownPower = own.CalculatePowerUsage(calculationAmount);
+                    double otherPower = other.CalculatePowerUsage(calculationAmount);
+                    bool notTheSame = own != other;
+                    bool allOtherResourcesAtMaxEqual = otherResources.All(x => (ignoreMaterialWater && (x.Key == materialWater)) || (ownResources.ContainsKey(x.Key) && (x.Value <= ownResources[x.Key])));
+                    bool powerAtMaxEqual = otherPower <= powerWeight * ownPower;
+                    bool someOtherResourcesActuallyLess = otherResources.Any(x => (!ignoreMaterialWater || (x.Key != materialWater)) && ownResources.ContainsKey(x.Key) && (x.Value < ownResources[x.Key]));
+                    bool otherPowerActuallyLess = otherPower < powerWeight * ownPower;
+                    if (notTheSame && allOtherResourcesAtMaxEqual && powerAtMaxEqual && (someOtherResourcesActuallyLess || otherPowerActuallyLess)) {
+                        // shiiit
+                        //}
+                        //if (other.CalculateBasicRessourcesNeeded(calculationAmount).All(x => (ignoreMaterialWater && (x.Key == materialWater)) || (x.Value <= usedResources[x.Key]))
+                        //    && (ignorePowerUsage || (other.CalculatePowerUsage(calculationAmount) <= opt.CalculatePowerUsage(calculationAmount)))) {
+                        Console.WriteLine($"Removed '{own}'");
+                        Console.WriteLine($"Power: {own.CalculatePowerUsage(calculationAmount):0.00}MW");
+                        //Console.WriteLine($"Machines: {string.Join(", ", own.CalculateMachinesNeeded(calculationAmount).Select(x => x.Value + "x " + x.Key.Name))}");
+                        Console.WriteLine($"Ressources: {string.Join(", ", own.CalculateBasicRessourcesNeeded(calculationAmount).Select(x => x.Value.ToString("0.00") + "x " + x.Key.Name))}");
+                        Console.WriteLine($"Because of '{other}'");
+                        Console.WriteLine($"Power: {other.CalculatePowerUsage(calculationAmount):0.00}MW");
+                        //Console.WriteLine($"Machines: {string.Join(", ", other.CalculateMachinesNeeded(calculationAmount).Select(x => x.Value + "x " + x.Key.Name))}");
+                        Console.WriteLine($"Ressources: {string.Join(", ", other.CalculateBasicRessourcesNeeded(calculationAmount).Select(x => x.Value.ToString("0.00") + "x " + x.Key.Name))}");
+                        Console.WriteLine();
+                        shitList.Add(own);
+                        break;
+                    }
+                }
+            }
+
+            productionOptions.RemoveAll(x => shitList.Contains(x));
+
+            Console.WriteLine("Left-over production options:");
+            foreach (var o in productionOptions) {
+                Console.WriteLine(o);
+                Console.WriteLine($"Power: {o.CalculatePowerUsage(calculationAmount):0.00}MW");
+                //Console.WriteLine($"Machines: {string.Join(", ", o.CalculateMachinesNeeded(calculationAmount).Select(x => x.Value + "x " + x.Key.Name))}");
+                Console.WriteLine($"Ressources: {string.Join(", ", o.CalculateBasicRessourcesNeeded(calculationAmount).Select(x => x.Value.ToString("0.00") + "x " + x.Key.Name))}");
+                Console.WriteLine();
+            }
+
+            Console.WriteLine($"Found {shitList.Count} 'shitty' options out of the available {productionOptions.Count + shitList.Count}.");
             Console.WriteLine("Done.");
         }
     }

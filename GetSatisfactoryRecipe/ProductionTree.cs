@@ -1,5 +1,6 @@
 ﻿namespace GetSatisfactoryRecipe {
     public class ProductionTree {
+        public Guid Id { get; private set; }
         public Material ProducedMaterial { get; private set; }
         public Recipe ProductionRecipe { get; private set; }
         public Machine ProductionMachine { get; private set; }
@@ -7,15 +8,23 @@
 
         private readonly Dictionary<Material, Recipe> lockedRecipes;
 
+        internal static Dictionary<Guid, ProductionTree> productionTreeCache = new();
+
         private ProductionTree(Material material, Dictionary<Material, Recipe> lockedRecipes, IEnumerable<Machine> knownMachines) {
             this.ProducedMaterial = material;
             this.ProductionRecipe = lockedRecipes[material];
             this.ProductionMachine = knownMachines.First(x => x.Recipes.Contains(this.ProductionRecipe));
             this.lockedRecipes = lockedRecipes;
 
+            // create ID from content
+            this.Id = material.Id;
+            foreach (var recipe in this.lockedRecipes) {
+                this.Id = Utils.XorGuids(this.Id, recipe.Value.Id);
+            }
+
             foreach (var input in this.ProductionRecipe.Inputs) {
                 if (lockedRecipes.ContainsKey(input.Key)) {
-                    this.ProductionInputs.Add(input.Key, new ProductionTree(input.Key, lockedRecipes, knownMachines));
+                    this.ProductionInputs.Add(input.Key, GetCachedTree(input.Key, lockedRecipes, knownMachines));
                 }
             }
         }
@@ -90,18 +99,12 @@
             return missingMaterials.Concat(this.ProductionInputs.SelectMany(x => x.Value.CalculateAllMissingInputs())).Distinct().ToList();
         }
 
-        private ProductionTree Clone(Material lockedMaterial, Recipe lockedRecipe, IEnumerable<Machine> knownMachines) {
-            Dictionary<Material, Recipe> clonedLockedRecipes = this.lockedRecipes.ToDictionary(x => x.Key, x => x.Value);
-            clonedLockedRecipes.Add(lockedMaterial, lockedRecipe);
-            return new(this.ProducedMaterial, clonedLockedRecipes, knownMachines);
-        }
-
         private ProductionTree Clone(Dictionary<Material, Recipe> lockedMaterialRecipes, IEnumerable<Machine> knownMachines) {
             Dictionary<Material, Recipe> clonedLockedRecipes = this.lockedRecipes.ToDictionary(x => x.Key, x => x.Value);
             foreach (var matLock in lockedMaterialRecipes) {
                 clonedLockedRecipes.Add(matLock.Key, matLock.Value);
             }
-            return new(this.ProducedMaterial, clonedLockedRecipes, knownMachines);
+            return GetCachedTree(this.ProducedMaterial, clonedLockedRecipes, knownMachines);
         }
 
         public override string? ToString() {
@@ -141,9 +144,120 @@
             return PermutatePossibleRecipes(brandNewList, missingMaterials.Skip(1).ToList());
         }
 
+        private static bool MaterialCanBeProducedByAvailableRecipes(Material material, Dictionary<Material, Recipe> lockedRecipes) {
+            if (!lockedRecipes.ContainsKey(material)) {
+                return false;
+            }
+            else {
+                foreach (var input in lockedRecipes[material].Inputs) {
+                    if (!MaterialCanBeProducedByAvailableRecipes(input.Key, lockedRecipes)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+
+        private static Guid GetProductionTreeHash(Material material, Dictionary<Material, Recipe> lockedRecipes) {
+            Recipe recipe = lockedRecipes[material];
+            if (!recipe.Inputs.Any()) {
+                return recipe.Id;
+            }
+
+            Guid id = recipe.Id;
+            foreach (var input in recipe.Inputs) {
+                Guid subTreeId = GetProductionTreeHash(input.Key, lockedRecipes);
+                //// generate a kind of 'path' ID; there are trees out there, same recipes, different structure
+                //Guid pathId = AndGuids(id, subTreeId);
+                // XOR them all together
+                id = Utils.XorGuids(id, subTreeId);
+                //id = XorGuids(id, pathId);
+            }
+
+            return id;
+        }
+
+        private static ProductionTree GetCachedTree(Material material, Dictionary<Material, Recipe> lockedRecipes, IEnumerable<Machine> knownMachines) {
+            // create ID from content
+            Guid id = GetProductionTreeHash(material, lockedRecipes);
+
+            if (productionTreeCache.ContainsKey(id)) {
+                return productionTreeCache[id];
+            }
+            else {
+                ProductionTree freshTree = new(material, lockedRecipes, knownMachines);
+                productionTreeCache.Add(id, freshTree);
+                return freshTree;
+            }
+        }
+
+        //private static ProductionTree GetCachedTree(Material material, Dictionary<Material, Recipe> lockedRecipes, IEnumerable<Machine> knownMachines) {
+        //    if (MaterialCanBeProducedByAvailableRecipes(material, lockedRecipes)) {
+        //        Guid id = GetProductionTreeHash(material, lockedRecipes);
+        //        if (productionTreeCache.ContainsKey(id)) {
+        //            return productionTreeCache[id];
+        //        }
+        //    }
+
+        //    ProductionTree freshTree = new(material, lockedRecipes, knownMachines);
+        //    productionTreeCache.Add(GetProductionTreeHash(material, lockedRecipes), freshTree);
+        //    return freshTree;
+        //}
+
+        private static IEnumerable<Material> CalculateMissingInputs(Material material, Dictionary<Material, Recipe> possiblyIncompleteRecipeList) {
+            List<Material> missingMaterials = new();
+            List<Recipe> recipes = new() { possiblyIncompleteRecipeList[material] };
+
+            // iterate expanding list
+            int recipeIndex = 0;
+            while (recipes.Count > recipeIndex) {
+                foreach (var input in recipes[recipeIndex].Inputs) {
+                    if (!possiblyIncompleteRecipeList.ContainsKey(input.Key)) {
+                        missingMaterials.Add(input.Key);
+                    }
+                    else {
+                        recipes.Add(possiblyIncompleteRecipeList[input.Key]);
+                    }
+                }
+                recipeIndex++;
+            }
+
+            return missingMaterials.Distinct();
+        }
+
+        public static List<ProductionTree> GetAllProductionOptionsInCool(Material material, IEnumerable<Machine> knownMachines) {
+            List<ProductionTree> productionOptions = new();
+            List<Dictionary<Material, Recipe>> incompleteRecipeLists = new(GetAllProducingRecipes(material, knownMachines).Select(x => new Dictionary<Material, Recipe>() { { material, x } }));
+
+            while (incompleteRecipeLists.Count > 0) {
+                List<Dictionary<Material, Recipe>> nextListIteration = new();
+
+                foreach (var recipes in incompleteRecipeLists) {
+                    IEnumerable<Material> missingInputs = CalculateMissingInputs(material, recipes);
+                    if (missingInputs.Any()) {
+                        List<Dictionary<Material, Recipe>> missingMaterialRecipesPermutated = PermutatePossibleRecipes(missingInputs, knownMachines);
+                        foreach (var permutation in missingMaterialRecipesPermutated) {
+                            foreach (var r in recipes) {
+                                permutation.Add(r.Key, r.Value);
+                            }
+                            nextListIteration.Add(permutation);
+                        }
+                    }
+                    else {
+                        productionOptions.Add(GetCachedTree(material, recipes, knownMachines));
+                    }
+                }
+
+                incompleteRecipeLists.Clear();
+                incompleteRecipeLists.AddRange(nextListIteration);
+            }
+
+            return productionOptions;
+        }
+
         public static List<ProductionTree> GetAllProductionOptions(Material material, IEnumerable<Machine> knownMachines) {
             List<ProductionTree> productionOptions = new();
-            List<ProductionTree> incompleteOptions = GetAllProducingRecipes(material, knownMachines).Select(x => new ProductionTree(material, new Dictionary<Material, Recipe>() { { material, x } }, knownMachines)).ToList();
+            List<ProductionTree> incompleteOptions = GetAllProducingRecipes(material, knownMachines).Select(x => GetCachedTree(material, new Dictionary<Material, Recipe>() { { material, x } }, knownMachines)).ToList();
 
             while (incompleteOptions.Any()) {
                 List<ProductionTree> toAdd = new();

@@ -1,7 +1,6 @@
 ﻿namespace GetSatisfactoryRecipe {
     public class Machine {
-        private readonly Guid _id = Guid.NewGuid();
-
+        public Guid Id { get; private set; } = Guid.NewGuid();
         public string Name { get; private set; }
         public int PowerUsage { get; private set; }
         public List<Recipe> Recipes { get; private set; }
@@ -18,11 +17,11 @@
         }
 
         public override bool Equals(object? obj) {
-            return (obj is Machine machine) && this._id.Equals(machine._id);
+            return (obj is Machine machine) && this.Id.Equals(machine.Id);
         }
 
         public override int GetHashCode() {
-            return HashCode.Combine(this._id);
+            return HashCode.Combine(this.Id);
         }
 
         public override string ToString() {
